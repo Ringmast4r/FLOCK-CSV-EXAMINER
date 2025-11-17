@@ -1,48 +1,4 @@
-#!/usr/bin/env python3
-"""
-Ringmast4r FLOCK CSV Examiner
-Wardriving CSV analyzer for Flock Safety surveillance device detection
-"""
-
-import http.server
-import socketserver
-import json
-import csv
-import io
-import html
-from urllib.parse import parse_qs, urlparse
-import os
-
-PORT = 8080
-
-# Flock Safety OUI Database (IEEE-verified)
-FLOCK_OUIS = {
-    # Extended Battery Devices (Silicon Laboratories)
-    "04:0D:84": "Extended Battery (Silicon Labs)",
-    "1C:34:F1": "Extended Battery (Silicon Labs)",
-    "38:5B:44": "Extended Battery (Silicon Labs)",
-    "58:8E:81": "Extended Battery (Silicon Labs)",
-    "90:35:EA": "Extended Battery (Silicon Labs)",
-    "94:34:69": "Extended Battery (Silicon Labs)",
-    "B4:E3:F9": "Extended Battery (Silicon Labs)",
-    "CC:CC:CC": "Extended Battery (Silicon Labs)",
-    "EC:1B:BD": "Extended Battery (Silicon Labs)",
-    "F0:82:C0": "Extended Battery (Silicon Labs)",
-    # WiFi Camera Devices (Liteon Technology)
-    "70:C9:4E": "WiFi Camera (Liteon)",
-    "3C:91:80": "WiFi Camera (Liteon)",
-    "D8:F3:BC": "WiFi Camera (Liteon)",
-    "80:30:49": "WiFi Camera (Liteon)",
-    "14:5A:FC": "WiFi Camera (Liteon)",
-    "74:4C:A1": "WiFi Camera (Liteon)",
-    "08:3A:88": "WiFi Camera (Liteon)",
-    "9C:2F:9D": "WiFi Camera (Liteon)",
-    "94:08:53": "WiFi Camera (Liteon)",
-    "E4:AA:EA": "WiFi Camera (Liteon)",
-    "00:F4:8D": "WiFi Camera (Liteon)",
-}
-
-HTML_TEMPLATE = """<!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
     <title>Ringmast4r Flock Hunter</title>
@@ -488,12 +444,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         // GIF rotation
         const gifList = [
-            '/gifs/Animation%20GIF.gif',
-            '/gifs/Hacking%20Hacker%20Man%20GIF%20by%20PERFECTL00P.gif',
-            '/gifs/jason%20bourne%20GIF.gif',
-            '/gifs/jim%20carrey%20coffee%20GIF.gif',
-            '/gifs/paper%20draft%20GIF.gif',
-            '/gifs/Working%20Jim%20Carrey%20GIF.gif'
+            'gifs/Animation%20GIF.gif',
+            'gifs/Hacking%20Hacker%20Man%20GIF%20by%20PERFECTL00P.gif',
+            'gifs/jason%20bourne%20GIF.gif',
+            'gifs/jim%20carrey%20coffee%20GIF.gif',
+            'gifs/paper%20draft%20GIF.gif',
+            'gifs/Working%20Jim%20Carrey%20GIF.gif'
         ];
         let shuffledGifs = [];
         let gifIndex = 0;
@@ -1133,49 +1089,3 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </script>
 </body>
 </html>
-"""
-
-class WiGLEAnalyzerHandler(http.server.SimpleHTTPRequestHandler):
-    def do_GET(self):
-        if self.path == '/' or self.path == '/index.html':
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            self.wfile.write(HTML_TEMPLATE.encode())
-        elif self.path.startswith('/gifs/'):
-            from urllib.parse import unquote
-            gif_name = unquote(self.path[6:])
-            gif_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'gifs', gif_name)
-            if os.path.exists(gif_path):
-                self.send_response(200)
-                self.send_header('Content-type', 'image/gif')
-                self.end_headers()
-                with open(gif_path, 'rb') as f:
-                    self.wfile.write(f.read())
-            else:
-                self.send_error(404)
-        else:
-            super().do_GET()
-
-    def log_message(self, format, *args):
-        print(f"[{self.log_date_time_string()}] {format % args}")
-
-def main():
-    os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
-    with socketserver.TCPServer(("", PORT), WiGLEAnalyzerHandler) as httpd:
-        print(f"\n{'='*60}")
-        print(f"  RINGMAST4R FLOCK HUNTER")
-        print(f"  Server running on http://localhost:{PORT}")
-        print(f"{'='*60}")
-        print(f"\nDetects {len(FLOCK_OUIS)} IEEE-verified Flock Safety OUI prefixes")
-        print(f"Drop wardriving CSV exports to scan for surveillance devices\n")
-        print("Press Ctrl+C to stop the server\n")
-
-        try:
-            httpd.serve_forever()
-        except KeyboardInterrupt:
-            print("\nServer stopped.")
-
-if __name__ == "__main__":
-    main()

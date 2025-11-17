@@ -1,35 +1,55 @@
+<div align="center">
+
 # FLOCK CSV EXAMINER
 
-![Welcome](Welcome_Ringmaster.gif)
+![Welcome](gifs/Welcome_Ringmaster.gif)
 
 ![Repo Size](https://img.shields.io/github/repo-size/Ringmast4r/FLOCK-CSV-EXAMINER)
 ![Visitors](https://visitor-badge.laobi.icu/badge?page_id=Ringmast4r.FLOCK-CSV-EXAMINER)
 
-Drop your wardriving CSVs, find Flock Safety cameras. That's it.
+**Drop wardriving CSVs. Find Flock Safety cameras.**
 
-## Run It
+---
+
+</div>
+
+## Live Demo
+
+**[https://ringmast4r.github.io/FLOCK-CSV-EXAMINER](https://ringmast4r.github.io/FLOCK-CSV-EXAMINER)**
+
+---
+
+## Run Locally
 
 ```bash
 python server.py
 ```
 
-Open http://localhost:8080
-
-## What It Does
-
-- Scans wardriving CSV files for Flock Safety surveillance device MAC addresses
-- Shows them on a map
-- Export to CSV, GeoJSON, or KML
-- Add your own OUI prefixes if you want
-
-## How to Use
-
-1. Drag and drop CSV files or folders
-2. See results
-3. Export if needed
-
-No dependencies except Python 3.
+Open **http://localhost:8080**
 
 ---
 
+## Features
+
+- Drag & drop CSV files or folders
+- Parallel processing (uses all CPU cores)
+- Interactive map with 10 layer options
+- Export to CSV, GeoJSON, KML
+- Add/remove custom OUI prefixes
+- No external dependencies
+
+---
+
+## How It Works
+
+1. Drop your wardriving CSVs
+2. See detected Flock devices on map
+3. Export results
+
+---
+
+<div align="center">
+
 *Ringmast4r*
+
+</div>
