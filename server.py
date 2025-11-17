@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-WiGLE File Analyzer for Flock Safety Device Detection
-Local server running on port 8000
+Ringmast4r FLOCK CSV Examiner
+Wardriving CSV analyzer for Flock Safety surveillance device detection
 """
 
 import http.server
@@ -13,7 +13,7 @@ import html
 from urllib.parse import parse_qs, urlparse
 import os
 
-PORT = 8000
+PORT = 8080
 
 # Flock Safety OUI Database (IEEE-verified)
 FLOCK_OUIS = {
@@ -251,7 +251,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <h1 style="color: #ff0000; margin-bottom: 20px;">RINGMAST4R FLOCK HUNTER</h1>
 
     <div class="upload-area" id="dropZone">
-        <h3>Drop WiGLE CSV Files or Folders Here</h3>
+        <h3>Drop Wardriving CSV Files or Folders Here</h3>
         <p style="color: #8b949e; margin: 10px 0;">or click to browse</p>
         <input type="file" id="fileInput" accept=".csv" multiple webkitdirectory directory style="display:none">
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none">
@@ -1119,7 +1119,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             totalNetworksCount = 0;
             document.getElementById('results').classList.add('hidden');
             document.getElementById('dropZone').innerHTML =
-                '<h3>Drop WiGLE CSV Files or Folders Here</h3>' +
+                '<h3>Drop Wardriving CSV Files or Folders Here</h3>' +
                 '<p style="color: #8b949e; margin: 10px 0;">or click to browse</p>';
             if (map) {
                 map.remove();
@@ -1165,11 +1165,11 @@ def main():
 
     with socketserver.TCPServer(("", PORT), WiGLEAnalyzerHandler) as httpd:
         print(f"\n{'='*60}")
-        print(f"  Ringmast4r Flock Hunter")
+        print(f"  RINGMAST4R FLOCK HUNTER")
         print(f"  Server running on http://localhost:{PORT}")
         print(f"{'='*60}")
         print(f"\nDetects {len(FLOCK_OUIS)} IEEE-verified Flock Safety OUI prefixes")
-        print(f"Upload WiGLE CSV exports to scan for surveillance devices\n")
+        print(f"Drop wardriving CSV exports to scan for surveillance devices\n")
         print("Press Ctrl+C to stop the server\n")
 
         try:
