@@ -530,11 +530,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         // GIF rotation (excludes Welcome_Ringmaster and jason bourne which plays first)
         const gifList = [
-            '/gifs/Animation%20GIF.gif',
-            '/gifs/Hacking%20Hacker%20Man%20GIF%20by%20PERFECTL00P.gif',
-            '/gifs/jim%20carrey%20coffee%20GIF.gif',
-            '/gifs/paper%20draft%20GIF.gif',
-            '/gifs/Working%20Jim%20Carrey%20GIF.gif'
+            'gifs/Animation%20GIF.gif',
+            'gifs/Hacking%20Hacker%20Man%20GIF%20by%20PERFECTL00P.gif',
+            'gifs/jim%20carrey%20coffee%20GIF.gif',
+            'gifs/paper%20draft%20GIF.gif',
+            'gifs/Working%20Jim%20Carrey%20GIF.gif'
         ];
         let shuffledGifs = [];
         let gifIndex = 0;
@@ -671,7 +671,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             shuffledGifs = shuffleArray(gifList);
             gifIndex = 0;
             currentGifElement = 0;
-            const firstGif = '/gifs/jason%20bourne%20GIF.gif';
+            const firstGif = 'gifs/jason%20bourne%20GIF.gif';
             const secondGif = getNextGif();
             dropZone.innerHTML = '<h3>Processing ' + files.length + ' CSV file(s) with ' + numWorkers + ' parallel workers...</h3><div class="gif-container"><img src="' + firstGif + '" class="hacker-gif visible" id="hackerGif1"><img src="' + secondGif + '" class="hacker-gif" id="hackerGif2"></div><p style="color: #8b949e;" id="progressText">0 / ' + files.length + ' files</p>';
 
