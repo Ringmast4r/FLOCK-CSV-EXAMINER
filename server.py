@@ -167,6 +167,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: #58a6ff;
             color: #0d1117;
         }
+        .type-custom {
+            background: #8b949e;
+            color: #0d1117;
+        }
         .filter-controls {
             background: #161b22;
             padding: 20px;
@@ -188,9 +192,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         .map-link:hover { text-decoration: underline; }
         .hacker-gif {
-            max-width: 600px;
-            width: 90%;
-            margin: 20px auto;
+            max-width: 800px;
+            width: 95%;
+            margin: 10px auto;
             display: block;
             opacity: 0;
             transition: opacity 0.8s ease-in-out;
@@ -201,7 +205,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .hacker-gif.visible { opacity: 1; }
         .gif-container {
             position: relative;
-            height: 520px;
+            height: 450px;
             width: 100%;
         }
         #results { margin-top: 30px; }
@@ -262,9 +266,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <h1 style="color: #ff0000; margin-bottom: 20px;">RINGMAST4R FLOCK HUNTER</h1>
 
     <div class="upload-area" id="dropZone">
-        <h3>Drop Wardriving CSV Files or Folders Here</h3>
-        <p style="color: #8b949e; margin: 10px 0;">or click to browse</p>
-        <input type="file" id="fileInput" accept=".csv" multiple webkitdirectory directory style="display:none">
+        <h3>Drop Wardriving Files or Folders Here</h3>
+        <p style="color: #8b949e; margin: 10px 0;">CSV, KML, Kismet, NetStumbler, inSSIDer, WiFiFoFum, and more</p>
+        <input type="file" id="fileInput" accept=".csv,.kml,.netxml,.kismet,.ns1,.txt" multiple webkitdirectory directory style="display:none">
         <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none">
     </div>
     <button class="secondary" onclick="resetDropZone()" style="margin-bottom: 20px;">Reset / New Scan</button>
@@ -289,9 +293,25 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <div class="stat-number" id="cameraDevices">0</div>
                 <div class="stat-label">WiFi Camera Units</div>
             </div>
+            <div class="stat-box">
+                <div class="stat-number" id="completeInstalls">0</div>
+                <div class="stat-label">Complete Installations</div>
+            </div>
         </div>
 
         <div id="alertBox"></div>
+
+        <div id="installToggleContainer" style="margin: 15px 0; display: none;">
+            <button id="installToggleBtn" onclick="toggleInstallationView()" style="background: #ff0000; color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 5px;">
+                SHOW COMPLETE INSTALLATIONS ONLY
+            </button>
+            <button id="fsFilterBtn" onclick="toggleFSFilter()" style="background: #ff6600; color: #fff; border: none; padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 5px; margin-left: 10px; display: none;">
+                FILTER: FS EXT BATTERY SSID ONLY
+            </button>
+            <span id="installRadiusControl" style="margin-left: 20px; display: none;">
+                Cluster Radius: <input type="range" id="clusterRadius" min="10" max="200" value="50" oninput="updateClusterRadius()" style="vertical-align: middle;"> <span id="radiusValue">50m</span>
+            </span>
+        </div>
 
         <h2>Device Map</h2>
         <div id="map"></div>
@@ -307,6 +327,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             <button class="export-btn" onclick="exportCSV()">Export CSV</button>
             <button class="export-btn" onclick="exportGeoJSON()">Export GeoJSON</button>
             <button class="export-btn" onclick="exportKML()">Export KML</button>
+            <button class="export-btn" onclick="exportMapSVG()">Export Map SVG</button>
             <button class="secondary" onclick="resetDropZone()">New Scan</button>
         </div>
 
@@ -334,10 +355,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="add-oui-form hidden" id="ouiEditForm">
         <strong>Add Custom OUI:</strong><br>
         <input type="text" id="newOuiPrefix" placeholder="XX:XX:XX" maxlength="8" style="width: 100px;">
-        <select id="newOuiType">
+        <select id="newOuiType" onchange="toggleCustomType()">
             <option value="battery">Extended Battery</option>
             <option value="camera">WiFi Camera</option>
+            <option value="custom">Custom Type</option>
         </select>
+        <input type="text" id="newOuiCustomType" placeholder="Custom Type Name" style="width: 150px; display: none;">
         <input type="text" id="newOuiManufacturer" placeholder="Manufacturer" style="width: 200px;">
         <button onclick="addCustomOUI()">Add OUI</button>
         <button class="reset-btn" onclick="resetToDefaults()">Reset to Defaults</button>
@@ -393,6 +416,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         let editMode = false;
         let sortColumn = null;
         let sortAsc = true;
+        let clusterMode = false;
+        let clusterRadius = 50; // meters
+        let installations = [];
+        let fsFilterMode = false;
 
         // Create worker code as blob for parallel processing
         function createWorkerCode() {
@@ -432,14 +459,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 if (dataStartIndex >= lines.length) return { results: [], networkCount: 0 };
 
-                const headers = lines[dataStartIndex].split(',').map(h => h.trim().toLowerCase());
-                const macIdx = headers.findIndex(h => h === 'mac' || h === 'bssid' || h === 'netid');
-                const ssidIdx = headers.findIndex(h => h === 'ssid' || h === 'name');
-                const rssiIdx = headers.findIndex(h => h === 'rssi' || h === 'signal' || h === 'bestlevel');
-                const channelIdx = headers.findIndex(h => h === 'channel');
-                const latIdx = headers.findIndex(h => h === 'trilat' || h === 'bestlat' || h === 'lat' || h === 'latitude' || h === 'currentlatitude');
-                const lonIdx = headers.findIndex(h => h === 'trilong' || h === 'bestlon' || h === 'lon' || h === 'longitude' || h === 'currentlongitude');
-                const timeIdx = headers.findIndex(h => h === 'firsttime' || h === 'firstseen' || h === 'time');
+                const headers = lines[dataStartIndex].split(',').map(h => h.trim().toLowerCase().replace(/ /g, '').replace(/_/g, '').replace(/-/g, ''));
+                const macIdx = headers.findIndex(h => h === 'mac' || h === 'bssid' || h === 'netid' || h === 'macaddress' || h === 'ap' || h === 'apmac' || h === 'address');
+                const ssidIdx = headers.findIndex(h => h === 'ssid' || h === 'name' || h === 'essid' || h === 'networkname' || h === 'apname');
+                const rssiIdx = headers.findIndex(h => h === 'rssi' || h === 'signal' || h === 'bestlevel' || h === 'level' || h === 'signalstrength' || h === 'dbm' || h === 'maxsignal' || h === 'minsignal');
+                const channelIdx = headers.findIndex(h => h === 'channel' || h === 'chan' || h === 'ch');
+                const latIdx = headers.findIndex(h => h === 'trilat' || h === 'bestlat' || h === 'lat' || h === 'latitude' || h === 'currentlatitude' || h === 'gpslat' || h === 'gpslatitude' || h === 'n' || h === 'y');
+                const lonIdx = headers.findIndex(h => h === 'trilong' || h === 'bestlon' || h === 'lon' || h === 'longitude' || h === 'currentlongitude' || h === 'gpslon' || h === 'gpslongitude' || h === 'long' || h === 'lng' || h === 'e' || h === 'x');
+                const timeIdx = headers.findIndex(h => h === 'firsttime' || h === 'firstseen' || h === 'time' || h === 'lastseen' || h === 'lasttime' || h === 'date' || h === 'datetime' || h === 'timestamp');
 
                 if (macIdx === -1) return { results: [], networkCount: 0 };
 
@@ -501,11 +528,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         initWorkers();
 
-        // GIF rotation
+        // GIF rotation (excludes Welcome_Ringmaster and jason bourne which plays first)
         const gifList = [
             '/gifs/Animation%20GIF.gif',
             '/gifs/Hacking%20Hacker%20Man%20GIF%20by%20PERFECTL00P.gif',
-            '/gifs/jason%20bourne%20GIF.gif',
             '/gifs/jim%20carrey%20coffee%20GIF.gif',
             '/gifs/paper%20draft%20GIF.gif',
             '/gifs/Working%20Jim%20Carrey%20GIF.gif'
@@ -604,21 +630,33 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         async function getAllFiles(entries, files) {
             for (let entry of entries) {
                 if (entry.isFile) {
-                    if (entry.name.endsWith('.csv')) {
+                    const name = entry.name.toLowerCase();
+                    if (name.endsWith('.csv') || name.endsWith('.netxml') || name.endsWith('.kismet') ||
+                        name.endsWith('.kml') || name.endsWith('.ns1') || name.endsWith('.txt') ||
+                        name.endsWith('.tsv') || name.endsWith('.log') || name.endsWith('.xml')) {
                         const file = await new Promise(resolve => entry.file(resolve));
                         files.push(file);
                     }
                 } else if (entry.isDirectory) {
                     const reader = entry.createReader();
-                    const subEntries = await new Promise(resolve => reader.readEntries(resolve));
-                    await getAllFiles(subEntries, files);
+                    let allEntries = [];
+                    // readEntries may not return all entries at once, need to loop
+                    const readAll = async () => {
+                        const batch = await new Promise(resolve => reader.readEntries(resolve));
+                        if (batch.length > 0) {
+                            allEntries = allEntries.concat(batch);
+                            await readAll();
+                        }
+                    };
+                    await readAll();
+                    await getAllFiles(allEntries, files);
                 }
             }
         }
 
         function processFiles(files) {
             if (files.length === 0) {
-                alert('No CSV files found');
+                alert('No wardriving files found (CSV, KML, Kismet, etc.)');
                 return;
             }
 
@@ -784,6 +822,189 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             return results;
         }
 
+        // Calculate distance between two coordinates in meters (Haversine formula)
+        function getDistanceMeters(lat1, lon1, lat2, lon2) {
+            const R = 6371000; // Earth radius in meters
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                      Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+
+        // Find complete installations (clusters of different device types)
+        function findInstallations() {
+            installations = [];
+            const used = new Set();
+
+            // Get devices with valid coordinates
+            const devicesWithCoords = allResults.filter(r => {
+                const lat = parseFloat(r.lat);
+                const lon = parseFloat(r.lon);
+                return !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0;
+            });
+
+            // Group by device type category
+            const getTypeCategory = (type) => {
+                if (type.includes('Battery')) return 'battery';
+                if (type.includes('Camera')) return 'camera';
+                return 'custom';
+            };
+
+            // For each device, find nearby devices of different types
+            for (let i = 0; i < devicesWithCoords.length; i++) {
+                if (used.has(i)) continue;
+
+                const device = devicesWithCoords[i];
+                const lat1 = parseFloat(device.lat);
+                const lon1 = parseFloat(device.lon);
+                const type1 = getTypeCategory(device.deviceType);
+
+                const cluster = [device];
+                const clusterTypes = new Set([type1]);
+                used.add(i);
+
+                // Find nearby devices of different types
+                for (let j = i + 1; j < devicesWithCoords.length; j++) {
+                    if (used.has(j)) continue;
+
+                    const other = devicesWithCoords[j];
+                    const lat2 = parseFloat(other.lat);
+                    const lon2 = parseFloat(other.lon);
+                    const type2 = getTypeCategory(other.deviceType);
+
+                    const distance = getDistanceMeters(lat1, lon1, lat2, lon2);
+
+                    if (distance <= clusterRadius && !clusterTypes.has(type2)) {
+                        cluster.push(other);
+                        clusterTypes.add(type2);
+                        used.add(j);
+                    }
+                }
+
+                // Only count as installation if multiple device types found
+                if (clusterTypes.size >= 2) {
+                    installations.push({
+                        devices: cluster,
+                        types: Array.from(clusterTypes),
+                        centerLat: lat1,
+                        centerLon: lon1
+                    });
+                }
+            }
+
+            return installations;
+        }
+
+        function toggleInstallationView() {
+            clusterMode = !clusterMode;
+            const btn = document.getElementById('installToggleBtn');
+            const radiusControl = document.getElementById('installRadiusControl');
+            const fsFilterBtn = document.getElementById('fsFilterBtn');
+
+            if (clusterMode) {
+                btn.textContent = 'SHOW ALL DEVICES';
+                btn.style.background = '#238636';
+                radiusControl.style.display = 'inline';
+                fsFilterBtn.style.display = 'inline-block';
+                // Filter table to only show devices in installations
+                filterToInstallations();
+            } else {
+                btn.textContent = 'SHOW COMPLETE INSTALLATIONS ONLY';
+                btn.style.background = '#ff0000';
+                radiusControl.style.display = 'none';
+                fsFilterBtn.style.display = 'none';
+                // Reset FS filter when going back to all devices
+                fsFilterMode = false;
+                fsFilterBtn.textContent = 'FILTER: FS EXT BATTERY SSID ONLY';
+                fsFilterBtn.style.background = '#ff6600';
+                // Restore to all results (respect any active filters)
+                filterResults();
+                updateAlertBox();
+            }
+            updateMapMarkers();
+        }
+
+        function toggleFSFilter() {
+            fsFilterMode = !fsFilterMode;
+            const btn = document.getElementById('fsFilterBtn');
+
+            if (fsFilterMode) {
+                btn.textContent = 'SHOW ALL INSTALLATIONS';
+                btn.style.background = '#238636';
+            } else {
+                btn.textContent = 'FILTER: FS EXT BATTERY SSID ONLY';
+                btn.style.background = '#ff6600';
+            }
+
+            filterToInstallations();
+            updateMapMarkers();
+            updateAlertBox();
+        }
+
+        function countFSInstallations() {
+            return installations.filter(install =>
+                install.devices.some(d =>
+                    d.ssid.toLowerCase().includes('fs') ||
+                    d.ssid.toLowerCase().includes('ext battery') ||
+                    d.ssid.toLowerCase().includes('flock')
+                )
+            ).length;
+        }
+
+        function updateAlertBox() {
+            const alertBox = document.getElementById('alertBox');
+            if (allResults.length > 0) {
+                let alertMsg = 'FLOCK SAFETY DEVICES DETECTED: ' + allResults.length + ' surveillance device(s) found in your scan data.';
+                if (installations.length > 0) {
+                    alertMsg += ' <strong>' + installations.length + ' complete installation(s)</strong> identified (multiple device types within ' + clusterRadius + 'm).';
+                    if (fsFilterMode) {
+                        const fsCount = countFSInstallations();
+                        alertMsg += ' <strong style="color: #ff6600;">' + fsCount + ' confirmed FS installations</strong> (with FS/Ext Battery SSID).';
+                    }
+                }
+                alertBox.innerHTML = '<div class="alert">' + alertMsg + '</div>';
+            }
+        }
+
+        function filterToInstallations() {
+            // Get all MACs that are part of installations
+            const installationMACs = new Set();
+
+            // If FS filter is on, only include installations that have "FS" or "Ext Battery" in SSID
+            const relevantInstallations = fsFilterMode ?
+                installations.filter(install =>
+                    install.devices.some(d =>
+                        d.ssid.toLowerCase().includes('fs') ||
+                        d.ssid.toLowerCase().includes('ext battery') ||
+                        d.ssid.toLowerCase().includes('flock')
+                    )
+                ) : installations;
+
+            relevantInstallations.forEach(install => {
+                install.devices.forEach(d => {
+                    installationMACs.add(d.mac);
+                });
+            });
+
+            // Filter to only devices in installations
+            filteredResults = allResults.filter(r => installationMACs.has(r.mac));
+            renderTable();
+        }
+
+        function updateClusterRadius() {
+            clusterRadius = parseInt(document.getElementById('clusterRadius').value);
+            document.getElementById('radiusValue').textContent = clusterRadius + 'm';
+            findInstallations();
+            document.getElementById('completeInstalls').textContent = installations.length;
+            if (clusterMode) {
+                filterToInstallations();
+                updateMapMarkers();
+            }
+        }
+
         function displayResults(totalNetworks) {
             document.getElementById('results').classList.remove('hidden');
             document.getElementById('totalNetworks').textContent = totalNetworks.toLocaleString();
@@ -795,10 +1016,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('batteryDevices').textContent = batteryCount;
             document.getElementById('cameraDevices').textContent = cameraCount;
 
+            // Find complete installations
+            findInstallations();
+            document.getElementById('completeInstalls').textContent = installations.length;
+
+            // Show installation toggle button if installations found
+            const installToggleContainer = document.getElementById('installToggleContainer');
+            if (installations.length > 0) {
+                installToggleContainer.style.display = 'block';
+            } else {
+                installToggleContainer.style.display = 'none';
+            }
+
             // Alert box
             const alertBox = document.getElementById('alertBox');
             if (allResults.length > 0) {
-                alertBox.innerHTML = '<div class="alert">FLOCK SAFETY DEVICES DETECTED: ' + allResults.length + ' surveillance device(s) found in your scan data.</div>';
+                let alertMsg = 'FLOCK SAFETY DEVICES DETECTED: ' + allResults.length + ' surveillance device(s) found in your scan data.';
+                if (installations.length > 0) {
+                    alertMsg += ' <strong>' + installations.length + ' complete installation(s)</strong> identified (multiple device types within ' + clusterRadius + 'm).';
+                }
+                alertBox.innerHTML = '<div class="alert">' + alertMsg + '</div>';
             } else {
                 alertBox.innerHTML = '<div class="alert success">No Flock Safety devices detected in the uploaded data.</div>';
             }
@@ -823,20 +1060,20 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 'Satellite (ESRI)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
                     attribution: '© ESRI'
                 }),
-                'Terrain': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                'Terrain (OpenTopoMap)': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenTopoMap'
                 }),
                 'Dark Mode': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
                     attribution: '© CartoDB'
                 }),
-                'Stadia Dark': L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png', {
-                    attribution: '© Stadia Maps'
+                'CartoDB Voyager': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+                    attribution: '© CartoDB'
                 }),
-                'Toner (Stamen)': L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
-                    attribution: '© Stamen'
+                'ESRI World Terrain': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© ESRI'
                 }),
-                'Watercolor (Stamen)': L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/watercolor/{z}/{x}/{y}.jpg', {
-                    attribution: '© Stamen'
+                'ESRI Shaded Relief': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '© ESRI'
                 }),
                 'CartoDB Positron': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                     attribution: '© CartoDB'
@@ -861,22 +1098,62 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             markersLayer.clearLayers();
 
             const bounds = [];
-            filteredResults.forEach(r => {
-                if (r.lat !== 'N/A' && r.lon !== 'N/A' && r.lat && r.lon) {
-                    const lat = parseFloat(r.lat);
-                    const lon = parseFloat(r.lon);
-                    if (!isNaN(lat) && !isNaN(lon)) {
+
+            // If cluster mode, show installations with highlight circles
+            if (clusterMode && installations.length > 0) {
+                // Filter installations if FS filter is on
+                const displayInstallations = fsFilterMode ?
+                    installations.filter(install =>
+                        install.devices.some(d =>
+                            d.ssid.toLowerCase().includes('fs') ||
+                            d.ssid.toLowerCase().includes('ext battery') ||
+                            d.ssid.toLowerCase().includes('flock')
+                        )
+                    ) : installations;
+
+                displayInstallations.forEach((install, idx) => {
+                    // Draw radius circle for installation
+                    const circle = L.circle([install.centerLat, install.centerLon], {
+                        radius: clusterRadius,
+                        fillColor: '#ff0000',
+                        color: '#ff0000',
+                        weight: 3,
+                        opacity: 0.8,
+                        fillOpacity: 0.15
+                    });
+
+                    let popupContent = '<strong style="color: #ff0000;">COMPLETE INSTALLATION #' + (idx + 1) + '</strong><br>';
+                    popupContent += '<strong>Types:</strong> ' + install.types.join(', ') + '<br>';
+                    popupContent += '<strong>Devices:</strong> ' + install.devices.length + '<br><hr>';
+
+                    install.devices.forEach(d => {
+                        popupContent += '<strong>MAC:</strong> ' + d.mac + '<br>';
+                        popupContent += '<strong>Type:</strong> ' + d.deviceType + '<br>';
+                        popupContent += '<strong>SSID:</strong> ' + d.ssid + '<br><br>';
+                    });
+
+                    circle.bindPopup(popupContent);
+                    markersLayer.addLayer(circle);
+
+                    // Add individual device markers within installation
+                    install.devices.forEach(r => {
+                        const lat = parseFloat(r.lat);
+                        const lon = parseFloat(r.lon);
                         bounds.push([lat, lon]);
-                        const color = r.deviceType.includes('Battery') ? '#32cd32' : '#58a6ff';
+                        let color;
+                        if (r.deviceType.includes('Battery')) color = '#32cd32';
+                        else if (r.deviceType.includes('Camera')) color = '#58a6ff';
+                        else color = '#8b949e';
                         const marker = L.circleMarker([lat, lon], {
                             radius: 10,
                             fillColor: color,
-                            color: '#fff',
-                            weight: 2,
+                            color: '#ff0000',
+                            weight: 3,
                             opacity: 1,
-                            fillOpacity: 0.8
+                            fillOpacity: 0.9
                         });
                         marker.bindPopup(
+                            '<strong style="color: #ff0000;">PART OF INSTALLATION #' + (idx + 1) + '</strong><br>' +
                             '<strong>MAC:</strong> ' + r.mac + '<br>' +
                             '<strong>SSID:</strong> ' + r.ssid + '<br>' +
                             '<strong>Type:</strong> ' + r.deviceType + '<br>' +
@@ -884,9 +1161,40 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             '<strong>First Seen:</strong> ' + r.firstSeen
                         );
                         markersLayer.addLayer(marker);
+                    });
+                });
+            } else {
+                // Normal mode - show all devices
+                filteredResults.forEach(r => {
+                    if (r.lat !== 'N/A' && r.lon !== 'N/A' && r.lat && r.lon) {
+                        const lat = parseFloat(r.lat);
+                        const lon = parseFloat(r.lon);
+                        if (!isNaN(lat) && !isNaN(lon)) {
+                            bounds.push([lat, lon]);
+                            let color;
+                            if (r.deviceType.includes('Battery')) color = '#32cd32';
+                            else if (r.deviceType.includes('Camera')) color = '#58a6ff';
+                            else color = '#8b949e';
+                            const marker = L.circleMarker([lat, lon], {
+                                radius: 10,
+                                fillColor: color,
+                                color: '#fff',
+                                weight: 2,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                            marker.bindPopup(
+                                '<strong>MAC:</strong> ' + r.mac + '<br>' +
+                                '<strong>SSID:</strong> ' + r.ssid + '<br>' +
+                                '<strong>Type:</strong> ' + r.deviceType + '<br>' +
+                                '<strong>Signal:</strong> ' + r.rssi + ' dBm<br>' +
+                                '<strong>First Seen:</strong> ' + r.firstSeen
+                            );
+                            markersLayer.addLayer(marker);
+                        }
                     }
-                }
-            });
+                });
+            }
 
             if (bounds.length > 0) {
                 map.fitBounds(bounds, { padding: [20, 20] });
@@ -951,12 +1259,26 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             for (let r of filteredResults) {
                 const tr = document.createElement('tr');
-                const typeClass = r.deviceType.includes('Battery') ? 'type-battery' : 'type-camera';
-                const typeName = r.deviceType.includes('Battery') ? 'Extended Battery' : 'WiFi Camera';
+                let typeClass, typeName;
+                if (r.deviceType.includes('Battery')) {
+                    typeClass = 'type-battery';
+                    typeName = 'Extended Battery';
+                } else if (r.deviceType.includes('Camera')) {
+                    typeClass = 'type-camera';
+                    typeName = 'WiFi Camera';
+                } else {
+                    typeClass = 'type-custom';
+                    typeName = r.deviceType.includes('(') ? r.deviceType.split('(')[0].trim() : r.deviceType;
+                }
 
                 let mapLink = 'N/A';
                 if (r.lat !== 'N/A' && r.lon !== 'N/A' && r.lat && r.lon) {
-                    mapLink = '<a class="map-link" href="https://www.openstreetmap.org/?mlat=' + r.lat + '&mlon=' + r.lon + '&zoom=18" target="_blank">View</a>';
+                    const lat = parseFloat(r.lat);
+                    const lon = parseFloat(r.lon);
+                    if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+                        // Use search query to drop a pin at exact coordinates
+                        mapLink = '<a class="map-link" href="https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lon + '" target="_blank">View</a>';
+                    }
                 }
 
                 tr.innerHTML =
@@ -1073,6 +1395,88 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        function exportMapSVG() {
+            if (filteredResults.length === 0 || !map) {
+                alert('No map data to export');
+                return;
+            }
+
+            const bounds = map.getBounds();
+            const minLat = bounds.getSouth();
+            const maxLat = bounds.getNorth();
+            const minLon = bounds.getWest();
+            const maxLon = bounds.getEast();
+
+            const width = 1400;
+            const height = 900;
+            const paddingLeft = 80;
+            const paddingRight = 50;
+            const paddingTop = 60;
+            const paddingBottom = 50;
+
+            function latToY(lat) {
+                return paddingTop + ((maxLat - lat) / (maxLat - minLat)) * (height - paddingTop - paddingBottom);
+            }
+            function lonToX(lon) {
+                return paddingLeft + ((lon - minLon) / (maxLon - minLon)) * (width - paddingLeft - paddingRight);
+            }
+
+            let svg = '<?xml version="1.0" encoding="UTF-8"?>\\n';
+            svg += '<svg xmlns="http://www.w3.org/2000/svg" width="' + width + '" height="' + height + '" viewBox="0 0 ' + width + ' ' + height + '">\\n';
+            svg += '  <rect width="100%" height="100%" fill="#0d1117"/>\\n';
+            svg += '  <text x="' + (width/2) + '" y="35" text-anchor="middle" fill="#ff0000" font-size="28" font-weight="bold" font-family="monospace">RINGMAST4R FLOCK HUNTER</text>\\n';
+            svg += '  <rect x="' + paddingLeft + '" y="' + paddingTop + '" width="' + (width - paddingLeft - paddingRight) + '" height="' + (height - paddingTop - paddingBottom) + '" fill="#161b22" stroke="#30363d"/>\\n';
+
+            // Grid lines
+            for (let i = 0; i <= 4; i++) {
+                const x = paddingLeft + i * (width - paddingLeft - paddingRight) / 4;
+                const y = paddingTop + i * (height - paddingTop - paddingBottom) / 4;
+                svg += '  <line x1="' + x + '" y1="' + paddingTop + '" x2="' + x + '" y2="' + (height-paddingBottom) + '" stroke="#30363d" stroke-width="0.5"/>\\n';
+                svg += '  <line x1="' + paddingLeft + '" y1="' + y + '" x2="' + (width-paddingRight) + '" y2="' + y + '" stroke="#30363d" stroke-width="0.5"/>\\n';
+
+                // Add coordinate labels on grid lines
+                const latVal = maxLat - i * (maxLat - minLat) / 4;
+                const lonVal = minLon + i * (maxLon - minLon) / 4;
+                svg += '  <text x="' + (paddingLeft - 10) + '" y="' + (y + 4) + '" text-anchor="end" fill="#8b949e" font-size="11" font-family="monospace">' + latVal.toFixed(4) + '</text>\\n';
+                svg += '  <text x="' + x + '" y="' + (height - paddingBottom + 20) + '" text-anchor="middle" fill="#8b949e" font-size="11" font-family="monospace">' + lonVal.toFixed(4) + '</text>\\n';
+            }
+
+            // Plot devices
+            let batteryCount = 0, cameraCount = 0, customCount = 0;
+            for (let r of filteredResults) {
+                if (r.lat !== 'N/A' && r.lon !== 'N/A' && r.lat && r.lon) {
+                    const lat = parseFloat(r.lat);
+                    const lon = parseFloat(r.lon);
+                    if (!isNaN(lat) && !isNaN(lon)) {
+                        const x = lonToX(lon);
+                        const y = latToY(lat);
+                        let color;
+                        if (r.deviceType.includes('Battery')) { color = '#32cd32'; batteryCount++; }
+                        else if (r.deviceType.includes('Camera')) { color = '#58a6ff'; cameraCount++; }
+                        else { color = '#8b949e'; customCount++; }
+
+                        svg += '  <circle cx="' + x.toFixed(2) + '" cy="' + y.toFixed(2) + '" r="8" fill="' + color + '" stroke="#fff" stroke-width="2" opacity="0.8"/>\\n';
+                    }
+                }
+            }
+
+            // Legend (bottom right, inside the map area)
+            const legendX = width - paddingRight - 240;
+            const legendY = height - paddingBottom - 90;
+            svg += '  <rect x="' + legendX + '" y="' + legendY + '" width="230" height="' + (customCount > 0 ? 85 : 60) + '" fill="#161b22" stroke="#30363d" rx="5" opacity="0.9"/>\\n';
+            svg += '  <circle cx="' + (legendX + 15) + '" cy="' + (legendY + 20) + '" r="8" fill="#32cd32"/>\\n';
+            svg += '  <text x="' + (legendX + 35) + '" y="' + (legendY + 25) + '" fill="#c9d1d9" font-size="14" font-family="monospace">Extended Battery (' + batteryCount + ')</text>\\n';
+            svg += '  <circle cx="' + (legendX + 15) + '" cy="' + (legendY + 45) + '" r="8" fill="#58a6ff"/>\\n';
+            svg += '  <text x="' + (legendX + 35) + '" y="' + (legendY + 50) + '" fill="#c9d1d9" font-size="14" font-family="monospace">WiFi Camera (' + cameraCount + ')</text>\\n';
+            if (customCount > 0) {
+                svg += '  <circle cx="' + (legendX + 15) + '" cy="' + (legendY + 70) + '" r="8" fill="#8b949e"/>\\n';
+                svg += '  <text x="' + (legendX + 35) + '" y="' + (legendY + 75) + '" fill="#c9d1d9" font-size="14" font-family="monospace">Custom (' + customCount + ')</text>\\n';
+            }
+
+            svg += '</svg>';
+            downloadFile(svg, 'flock_map.svg', 'image/svg+xml');
+        }
+
         function downloadFile(content, filename, mimeType) {
             const blob = new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
@@ -1103,8 +1507,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             for (let [oui, type] of sorted) {
                 const tr = document.createElement('tr');
                 const isBattery = type.includes('Battery');
-                const typeClass = isBattery ? 'type-battery' : 'type-camera';
-                const typeName = isBattery ? 'Extended Battery' : 'WiFi Camera';
+                const isCamera = type.includes('Camera');
+                let typeClass, typeName;
+                if (isBattery) {
+                    typeClass = 'type-battery';
+                    typeName = 'Extended Battery';
+                } else if (isCamera) {
+                    typeClass = 'type-camera';
+                    typeName = 'WiFi Camera';
+                } else {
+                    typeClass = 'type-custom';
+                    typeName = type.includes('(') ? type.split('(')[0].trim() : type;
+                }
                 const manufacturer = type.includes('(') ? type.split('(')[1].replace(')', '') : 'Custom';
 
                 tr.innerHTML =
@@ -1134,10 +1548,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
+        function toggleCustomType() {
+            const typeSelect = document.getElementById('newOuiType');
+            const customInput = document.getElementById('newOuiCustomType');
+            if (typeSelect.value === 'custom') {
+                customInput.style.display = 'inline-block';
+            } else {
+                customInput.style.display = 'none';
+            }
+        }
+
         function addCustomOUI() {
             let prefix = document.getElementById('newOuiPrefix').value.trim().toUpperCase();
             const type = document.getElementById('newOuiType').value;
             const manufacturer = document.getElementById('newOuiManufacturer').value.trim() || 'Custom';
+            const customTypeName = document.getElementById('newOuiCustomType').value.trim();
 
             // Normalize to XX:XX:XX format
             prefix = prefix.replace(/[^A-F0-9]/g, '');
@@ -1152,9 +1577,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 return;
             }
 
-            const deviceType = type === 'battery'
-                ? 'Extended Battery (' + manufacturer + ')'
-                : 'WiFi Camera (' + manufacturer + ')';
+            let deviceType;
+            if (type === 'battery') {
+                deviceType = 'Extended Battery (' + manufacturer + ')';
+            } else if (type === 'camera') {
+                deviceType = 'WiFi Camera (' + manufacturer + ')';
+            } else {
+                if (!customTypeName) {
+                    alert('Please enter a custom type name');
+                    return;
+                }
+                deviceType = customTypeName + ' (' + manufacturer + ')';
+            }
 
             FLOCK_OUIS[prefix] = deviceType;
             saveOUIs();
@@ -1163,6 +1597,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             // Clear inputs
             document.getElementById('newOuiPrefix').value = '';
             document.getElementById('newOuiManufacturer').value = '';
+            document.getElementById('newOuiCustomType').value = '';
+            document.getElementById('newOuiType').value = 'battery';
+            document.getElementById('newOuiCustomType').style.display = 'none';
         }
 
         function deleteOUI(oui) {
@@ -1187,8 +1624,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             totalNetworksCount = 0;
             document.getElementById('results').classList.add('hidden');
             document.getElementById('dropZone').innerHTML =
-                '<h3>Drop Wardriving CSV Files or Folders Here</h3>' +
-                '<p style="color: #8b949e; margin: 10px 0;">or click to browse</p>';
+                '<h3>Drop Wardriving Files or Folders Here</h3>' +
+                '<p style="color: #8b949e; margin: 10px 0;">CSV, KML, Kismet, NetStumbler, inSSIDer, WiFiFoFum, and more</p>';
             if (map) {
                 map.remove();
                 map = null;
