@@ -52,9 +52,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 20px;
+            margin: 0;
+            padding: 20px 40px;
             background: #0d1117;
             color: #c9d1d9;
         }
