@@ -6,6 +6,7 @@
 
 ![Repo Size](https://img.shields.io/github/repo-size/Ringmast4r/FLOCK-CSV-EXAMINER)
 ![Visitors](https://visitor-badge.laobi.icu/badge?page_id=Ringmast4r.FLOCK-CSV-EXAMINER)
+[![License: CC BY 4.0](https://img.shields.io/badge/License-CC%20BY%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by/4.0/)
 
 **Drop wardriving CSVs. Find Flock Safety cameras.**
 

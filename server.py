@@ -13,7 +13,7 @@ import html
 from urllib.parse import parse_qs, urlparse
 import os
 
-PORT = 8080
+PORT = 2600
 
 # Flock Safety OUI Database (IEEE-verified)
 FLOCK_OUIS = {
@@ -46,6 +46,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <html>
 <head>
     <title>Ringmast4r Flock Hunter</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect x='10' y='60' width='80' height='10' fill='%23ff0000'/><rect x='25' y='25' width='50' height='35' fill='%23ff0000'/></svg>">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
@@ -109,6 +110,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             color: #ff0000;
             font-weight: 600;
         }
+        th.sortable {
+            cursor: pointer;
+        }
+        th.sortable:hover {
+            background: #30363d;
+        }
+        th.sortable::after {
+            content: ' \\2195';
+            opacity: 0.5;
+        }
         tr:hover { background: #1c2128; }
         .stats {
             display: grid;
@@ -150,7 +161,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-weight: 500;
         }
         .type-battery {
-            background: #f0883e;
+            background: #32cd32;
             color: #0d1117;
         }
         .type-camera {
@@ -178,7 +189,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         .map-link:hover { text-decoration: underline; }
         .hacker-gif {
-            max-width: 400px;
+            max-width: 600px;
+            width: 90%;
             margin: 20px auto;
             display: block;
             opacity: 0;
@@ -190,7 +202,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .hacker-gif.visible { opacity: 1; }
         .gif-container {
             position: relative;
-            height: 420px;
+            height: 520px;
             width: 100%;
         }
         #results { margin-top: 30px; }
@@ -302,14 +314,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <table id="resultsTable">
             <thead>
                 <tr>
-                    <th>MAC Address</th>
-                    <th>SSID</th>
-                    <th>Device Type</th>
-                    <th>Signal (dBm)</th>
-                    <th>Channel</th>
-                    <th>Latitude</th>
-                    <th>Longitude</th>
-                    <th>First Seen</th>
+                    <th class="sortable" onclick="sortResults('mac')">MAC Address</th>
+                    <th class="sortable" onclick="sortResults('ssid')">SSID</th>
+                    <th class="sortable" onclick="sortResults('deviceType')">Device Type</th>
+                    <th class="sortable" onclick="sortResults('rssi')">Signal (dBm)</th>
+                    <th class="sortable" onclick="sortResults('channel')">Channel</th>
+                    <th class="sortable" onclick="sortResults('lat')">Latitude</th>
+                    <th class="sortable" onclick="sortResults('lon')">Longitude</th>
+                    <th class="sortable" onclick="sortResults('firstSeen')">First Seen</th>
                     <th>Map</th>
                 </tr>
             </thead>
@@ -318,8 +330,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <h2>Flock Safety OUI Reference <span id="ouiCount" style="color: #8b949e; font-size: 16px;"></span></h2>
+    <button class="secondary" onclick="toggleEditMode()" id="editToggleBtn">Edit OUIs</button>
 
-    <div class="add-oui-form">
+    <div class="add-oui-form hidden" id="ouiEditForm">
         <strong>Add Custom OUI:</strong><br>
         <input type="text" id="newOuiPrefix" placeholder="XX:XX:XX" maxlength="8" style="width: 100px;">
         <select id="newOuiType">
@@ -337,7 +350,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 <th>OUI Prefix</th>
                 <th>Device Type</th>
                 <th>Manufacturer</th>
-                <th>Action</th>
+                <th class="action-col hidden">Action</th>
             </tr>
         </thead>
         <tbody id="ouiTableBody">
@@ -378,6 +391,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         let map = null;
         let markersLayer = null;
         let workers = [];
+        let editMode = false;
+        let sortColumn = null;
+        let sortAsc = true;
 
         // Create worker code as blob for parallel processing
         function createWorkerCode() {
@@ -618,7 +634,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             shuffledGifs = shuffleArray(gifList);
             gifIndex = 0;
             currentGifElement = 0;
-            const firstGif = getNextGif();
+            const firstGif = '/gifs/jason%20bourne%20GIF.gif';
             const secondGif = getNextGif();
             dropZone.innerHTML = '<h3>Processing ' + files.length + ' CSV file(s) with ' + numWorkers + ' parallel workers...</h3><div class="gif-container"><img src="' + firstGif + '" class="hacker-gif visible" id="hackerGif1"><img src="' + secondGif + '" class="hacker-gif" id="hackerGif2"></div><p style="color: #8b949e;" id="progressText">0 / ' + files.length + ' files</p>';
 
@@ -852,7 +868,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     const lon = parseFloat(r.lon);
                     if (!isNaN(lat) && !isNaN(lon)) {
                         bounds.push([lat, lon]);
-                        const color = r.deviceType.includes('Battery') ? '#f0883e' : '#58a6ff';
+                        const color = r.deviceType.includes('Battery') ? '#32cd32' : '#58a6ff';
                         const marker = L.circleMarker([lat, lon], {
                             radius: 10,
                             fillColor: color,
@@ -898,6 +914,36 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             renderTable();
             updateMapMarkers();
+        }
+
+        function sortResults(column) {
+            if (sortColumn === column) {
+                sortAsc = !sortAsc;
+            } else {
+                sortColumn = column;
+                sortAsc = true;
+            }
+
+            filteredResults.sort((a, b) => {
+                let aVal = a[column];
+                let bVal = b[column];
+
+                // Handle numeric sorting
+                if (column === 'rssi' || column === 'channel' || column === 'lat' || column === 'lon') {
+                    aVal = parseFloat(aVal) || 0;
+                    bVal = parseFloat(bVal) || 0;
+                    return sortAsc ? aVal - bVal : bVal - aVal;
+                }
+
+                // String sorting
+                aVal = String(aVal).toLowerCase();
+                bVal = String(bVal).toLowerCase();
+                if (aVal < bVal) return sortAsc ? -1 : 1;
+                if (aVal > bVal) return sortAsc ? 1 : -1;
+                return 0;
+            });
+
+            renderTable();
         }
 
         function renderTable() {
@@ -996,7 +1042,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             // Styles
             kml += '  <Style id="battery">\\n';
-            kml += '    <IconStyle><color>ff3e88f0</color><scale>1.2</scale></IconStyle>\\n';
+            kml += '    <IconStyle><color>ff32cd32</color><scale>1.2</scale></IconStyle>\\n';
             kml += '  </Style>\\n';
             kml += '  <Style id="camera">\\n';
             kml += '    <IconStyle><color>ffffa658</color><scale>1.2</scale></IconStyle>\\n';
@@ -1047,7 +1093,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         function renderOUITable() {
             const tbody = document.getElementById('ouiTableBody');
             tbody.innerHTML = '';
-            const sorted = Object.entries(FLOCK_OUIS).sort((a, b) => a[0].localeCompare(b[0]));
+            // Sort by device type first (Battery before Camera), then by OUI
+            const sorted = Object.entries(FLOCK_OUIS).sort((a, b) => {
+                const aType = a[1].includes('Battery') ? 0 : 1;
+                const bType = b[1].includes('Battery') ? 0 : 1;
+                if (aType !== bType) return aType - bType;
+                return a[0].localeCompare(b[0]);
+            });
 
             for (let [oui, type] of sorted) {
                 const tr = document.createElement('tr');
@@ -1060,10 +1112,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     '<td><code>' + escapeHtml(oui) + '</code></td>' +
                     '<td><span class="device-type ' + typeClass + '">' + typeName + '</span></td>' +
                     '<td>' + escapeHtml(manufacturer) + '</td>' +
-                    '<td><button class="delete-btn" onclick="deleteOUI(\\'' + oui + '\\')">Delete</button></td>';
+                    '<td class="action-col ' + (editMode ? '' : 'hidden') + '"><button class="delete-btn" onclick="deleteOUI(\\'' + oui + '\\')">Delete</button></td>';
                 tbody.appendChild(tr);
             }
             document.getElementById('ouiCount').textContent = '(' + Object.keys(FLOCK_OUIS).length + ' OUIs)';
+        }
+
+        function toggleEditMode() {
+            editMode = !editMode;
+            const form = document.getElementById('ouiEditForm');
+            const btn = document.getElementById('editToggleBtn');
+            const actionCols = document.querySelectorAll('.action-col');
+
+            if (editMode) {
+                form.classList.remove('hidden');
+                btn.textContent = 'Done Editing';
+                actionCols.forEach(col => col.classList.remove('hidden'));
+            } else {
+                form.classList.add('hidden');
+                btn.textContent = 'Edit OUIs';
+                actionCols.forEach(col => col.classList.add('hidden'));
+            }
         }
 
         function addCustomOUI() {
