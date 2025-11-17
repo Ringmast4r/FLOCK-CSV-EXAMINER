@@ -1,5 +1,7 @@
 # FLOCK CSV EXAMINER
 
+![Welcome](Welcome_Ringmaster.gif)
+
 ![Repo Size](https://img.shields.io/github/repo-size/Ringmast4r/FLOCK-CSV-EXAMINER)
 ![Visitors](https://visitor-badge.laobi.icu/badge?page_id=Ringmast4r.FLOCK-CSV-EXAMINER)
 
