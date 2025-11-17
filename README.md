@@ -26,17 +26,21 @@
 python server.py
 ```
 
-Open **http://localhost:8080**
+Open **http://localhost:2600**
 
 ---
 
 ## Features
 
-- Drag & drop CSV files or folders
+- Drag & drop CSV files or folders (recursive scanning)
 - Parallel processing (uses all CPU cores)
-- Interactive map with 10 layer options
-- Export to CSV, GeoJSON, KML
-- Add/remove custom OUI prefixes
+- Interactive map with 10 tile layer options
+- Complete installation detection (clusters Battery + Camera within radius)
+- FS Ext Battery SSID filter to eliminate false positives
+- Adjustable cluster radius (10m - 200m)
+- Export to CSV, GeoJSON, KML, SVG
+- Google Maps pin drop links for each device
+- Add/remove/customize OUI prefixes with localStorage persistence
 - No external dependencies
 
 ---
