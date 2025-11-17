@@ -962,7 +962,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     alertMsg += ' <strong>' + installations.length + ' complete installation(s)</strong> identified (multiple device types within ' + clusterRadius + 'm).';
                     if (fsFilterMode) {
                         const fsCount = countFSInstallations();
-                        alertMsg += ' <strong style="color: #ff6600;">' + fsCount + ' confirmed FS installations</strong> (with FS/Ext Battery SSID).';
+                        alertMsg += ' <strong style="color: #ffff00; background: #000; padding: 2px 6px; border-radius: 3px;">' + fsCount + ' confirmed FS installations</strong> (with FS/Ext Battery SSID).';
                     }
                 }
                 alertBox.innerHTML = '<div class="alert">' + alertMsg + '</div>';
@@ -1002,6 +1002,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (clusterMode) {
                 filterToInstallations();
                 updateMapMarkers();
+                updateAlertBox();
             }
         }
 

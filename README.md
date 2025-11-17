@@ -45,7 +45,7 @@ Open **http://localhost:8080**
 
 1. Get your wardriving data from [WiGLE-Vault](https://github.com/Ringmast4r/WiGLE-Vault)
 2. Drop your CSVs here
-3. See detected Flock devices on map
+3. See potential detected Flock devices on map
 4. Export results
 
 ---
