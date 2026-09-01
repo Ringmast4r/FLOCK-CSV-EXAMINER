@@ -260,7 +260,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: #6e7681;
         }
         .reset-btn:hover { background: #8b949e; }
-    </style>
+    .tile-grey { filter: grayscale(1) brightness(1.06) contrast(0.86); }
+.tile-dark { filter: invert(1) grayscale(1) brightness(0.85) contrast(0.9); }
+</style>
 </head>
 <body>
     <h1 style="color: #ff0000; margin-bottom: 20px;">RINGMAST4R FLOCK HUNTER</h1>
@@ -1064,11 +1066,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 'Terrain (OpenTopoMap)': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
                     attribution: '© OpenTopoMap'
                 }),
-                'Dark Mode': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '© CartoDB'
-                }),
-                'CartoDB Voyager': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    attribution: '© CartoDB'
+                'Dark Mode': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    className: 'tile-dark',
+                    attribution: '© OpenStreetMap contributors'
                 }),
                 'ESRI World Terrain': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Terrain_Base/MapServer/tile/{z}/{y}/{x}', {
                     attribution: '© ESRI'
@@ -1076,8 +1076,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 'ESRI Shaded Relief': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', {
                     attribution: '© ESRI'
                 }),
-                'CartoDB Positron': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                    attribution: '© CartoDB'
+                'Light (OSM desaturated)': L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    className: 'tile-grey',
+                    attribution: '© OpenStreetMap contributors'
                 }),
                 'ESRI Topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
                     attribution: '© ESRI'
